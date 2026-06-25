@@ -1,0 +1,70 @@
+<!-- Plugin Configuration File. See https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<idea-plugin>
+    <id>com.github.aicommit.message</id>
+    <name>AI Commit Message</name>
+    <vendor email="support@github.com" url="https://github.com">AI Commit</vendor>
+
+    <description><![CDATA[
+      <h3>AI Commit Message Generator</h3>
+      <p>An IntelliJ IDEA plugin that automatically generates concise and professional Git commit messages using LLMs (Gemini, OpenAI, Ollama, DeepSeek, or custom API endpoints) based on your staged changes.</p>
+      
+      <h4>Features:</h4>
+      <ul>
+        <li><strong>Staged Changes Diff Analysis</strong>: Automatically retrieves changes and generates a unified diff.</li>
+        <li><strong>Multi-LLM Provider Support</strong>: Supports Gemini, OpenAI, local Ollama, and any custom OpenAI-compatible API (e.g. DeepSeek).</li>
+        <li><strong>Customizable Prompts</strong>: Tailor the prompt template to match your team's commit style (e.g. Conventional Commits).</li>
+        <li><strong>Secure API Key Storage</strong>: Safe keychain storage using IntelliJ's PasswordSafe API.</li>
+        <li><strong>Target Language Support</strong>: Generate messages in English, Chinese, Japanese, Spanish, French, or German.</li>
+      </ul>
+      
+      <br>
+      
+      <h3>AI Commit Message 生成器</h3>
+      <p>一个 IntelliJ IDEA 插件，通过接入大语言模型（Gemini、OpenAI、本地离线 Ollama、DeepSeek 或自定义 API 终点），根据你勾选的文件改动（Diff）自动生成简洁、规范的 Git 提交信息（Commit Message）。</p>
+      
+      <h4>主要功能：</h4>
+      <ul>
+        <li><strong>代码变动 Diff 分析</strong>：自动提取当前勾选文件的代码改动并生成统一差异文本。</li>
+        <li><strong>多模型支持</strong>：集成 Gemini、OpenAI、本地离线 Ollama 以及任何兼容 OpenAI 格式的自定义接口。</li>
+        <li><strong>自定义 Prompt 模板</strong>：支持自由配置 Prompt 模板，适配团队特定的 Commit 规范（如 Conventional Commits）。</li>
+        <li><strong>安全密钥存储</strong>：使用 IDEA 官方的 PasswordSafe 安全凭据库存储 API Key，绝不明文保存。</li>
+        <li><strong>多语言支持</strong>：支持生成中文、英文、日文、西班牙文、法文或德文的提交信息。</li>
+      </ul>
+    ]]></description>
+
+    <change-notes><![CDATA[
+      <h4>v1.0.0</h4>
+      <ul>
+        <li>Initial release with support for Gemini, OpenAI, Ollama, and Custom endpoints.</li>
+        <li>Added a lightning bolt button in the commit panel toolbar for quick generation.</li>
+        <li>Implemented safe credential storage and custom prompt templates.</li>
+        <li>Implemented dynamic loading states and button disabling.</li>
+      </ul>
+    ]]></change-notes>
+
+    <!-- Require Platform and Git plugins -->
+    <depends>com.intellij.modules.platform</depends>
+    <depends>Git4Idea</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Settings screen -->
+        <applicationConfigurable
+                instance="com.github.aicommit.settings.AICommitConfigurable"
+                id="com.github.aicommit.settings.AICommitConfigurable"
+                displayName="AI Commit Message"/>
+
+        <!-- Settings persistent state service -->
+        <applicationService serviceImplementation="com.github.aicommit.settings.AICommitSettings"/>
+    </extensions>
+
+    <actions>
+        <!-- Commit panel toolbar action button -->
+        <action id="com.github.aicommit.actions.GenerateCommitMessageAction"
+                class="com.github.aicommit.actions.GenerateCommitMessageAction"
+                text="Generate Commit Message with AI"
+                description="Generates a commit message using configured LLM based on changes"
+                icon="AllIcons.Actions.Lightning">
+            <add-to-group group-id="Vcs.MessageActionGroup" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>

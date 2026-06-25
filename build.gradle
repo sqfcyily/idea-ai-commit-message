@@ -1,0 +1,40 @@
+plugins {
+    id 'java'
+    id 'org.jetbrains.intellij' version '1.17.4'
+}
+
+group = 'com.github.aicommit'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+sourceCompatibility = 17
+targetCompatibility = 17
+
+// Configure Gradle IntelliJ Plugin
+intellij {
+    if (project.hasProperty('localIdeaPath') && project.property('localIdeaPath')) {
+        localPath = project.property('localIdeaPath')
+    } else {
+        version = '2026.1.3'
+    }
+    plugins = ['Git4Idea']
+    instrumentCode = false
+}
+
+patchPluginXml {
+    sinceBuild = '261'
+    untilBuild = '261.*'
+}
+
+// Disable verification task that blocks builds on 2024.2+
+verifyPluginConfiguration {
+    enabled = false
+}
+
+// Disable searchable options task that fails on local IDE paths
+buildSearchableOptions {
+    enabled = false
+}

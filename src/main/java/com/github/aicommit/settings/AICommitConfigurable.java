@@ -20,6 +20,7 @@ public class AICommitConfigurable implements Configurable {
     private JBTextField modelNameField;
     private JComboBox<String> languageComboBox;
     private JBTextArea promptTextArea;
+    private JCheckBox debugLogCheckBox;
 
     @Nls(capitalization = Nls.Capitalization.Title)
     @Override
@@ -68,7 +69,7 @@ public class AICommitConfigurable implements Configurable {
         gbc.gridx = 0; gbc.gridy = 4; gbc.weightx = 0.0;
         mainPanel.add(new JBLabel("Language:"), gbc);
         gbc.gridx = 1; gbc.weightx = 1.0;
-        languageComboBox = new JComboBox<>(new String[]{"English", "Chinese", "Japanese", "Spanish", "German", "French"});
+        languageComboBox = new JComboBox<>(new String[]{"English", "Chinese", "Japanese", "Korean", "Spanish", "German", "French"});
         mainPanel.add(languageComboBox, gbc);
 
         // Prompt
@@ -80,8 +81,13 @@ public class AICommitConfigurable implements Configurable {
         promptTextArea.setWrapStyleWord(true);
         mainPanel.add(new JScrollPane(promptTextArea), gbc);
 
+        // Enable Debug Log
+        gbc.gridx = 0; gbc.gridy = 6; gbc.gridwidth = 2; gbc.weightx = 1.0;
+        debugLogCheckBox = new JCheckBox("Enable debug log (writes ai-commit-diff-debug.log to project root)");
+        mainPanel.add(debugLogCheckBox, gbc);
+
         // Spacer to push everything to the top
-        gbc.gridx = 0; gbc.gridy = 6; gbc.gridwidth = 2; gbc.weighty = 1.0;
+        gbc.gridy = 7; gbc.weighty = 1.0;
         mainPanel.add(new JPanel(), gbc);
 
         // Add action listener to combobox to set default values
@@ -108,8 +114,9 @@ public class AICommitConfigurable implements Configurable {
         boolean modelNameModified = !state.modelName.equals(modelNameField.getText());
         boolean languageModified = !state.language.equals(languageComboBox.getSelectedItem());
         boolean promptModified = !state.promptTemplate.equals(promptTextArea.getText());
+        boolean debugLogModified = state.enableDebugLog != debugLogCheckBox.isSelected();
 
-        return providerModified || apiUrlModified || apiKeyModified || modelNameModified || languageModified || promptModified;
+        return providerModified || apiUrlModified || apiKeyModified || modelNameModified || languageModified || promptModified || debugLogModified;
     }
 
     @Override
@@ -123,6 +130,7 @@ public class AICommitConfigurable implements Configurable {
         state.modelName = modelNameField.getText();
         state.language = (String) languageComboBox.getSelectedItem();
         state.promptTemplate = promptTextArea.getText();
+        state.enableDebugLog = debugLogCheckBox.isSelected();
 
         AICommitPasswordSafe.setApiKey(new String(apiKeyField.getPassword()));
     }
@@ -139,5 +147,6 @@ public class AICommitConfigurable implements Configurable {
         modelNameField.setText(state.modelName);
         languageComboBox.setSelectedItem(state.language);
         promptTextArea.setText(state.promptTemplate);
+        debugLogCheckBox.setSelected(state.enableDebugLog);
     }
 }

@@ -24,6 +24,7 @@ public class AICommitSettings implements PersistentStateComponent<AICommitSettin
                 "Changes:\n" +
                 "{diff}";
         public String language = "English";
+        public boolean enableDebugLog = false;
     }
 
     public enum Provider {

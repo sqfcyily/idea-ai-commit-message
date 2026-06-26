@@ -20,6 +20,10 @@ import com.intellij.openapi.vcs.changes.Change;
 import com.intellij.openapi.vcs.changes.ContentRevision;
 import com.intellij.vcs.commit.CommitWorkflowUi;
 import com.intellij.openapi.vcs.CommitMessageI;
+import com.intellij.openapi.vcs.changes.CurrentContentRevision;
+import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.openapi.editor.Document;
+import com.intellij.openapi.fileEditor.FileDocumentManager;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -90,7 +94,13 @@ public class GenerateCommitMessageAction extends AnAction {
             public void run(@NotNull ProgressIndicator indicator) {
                 try {
                     indicator.setText("Retrieving changes diff...");
-                    String diffText = buildDiffText(changes, indicator);
+                    StringBuilder debugLog = new StringBuilder();
+                    String diffText = buildDiffText(changes, indicator, debugLog);
+
+                    // Write to local debug log file in project root if enabled
+                    if (state.enableDebugLog) {
+                        saveDebugLog(project, diffText, debugLog.toString());
+                    }
 
                     if (diffText.trim().isEmpty()) {
                         ApplicationManager.getApplication().invokeLater(() -> {
@@ -146,7 +156,7 @@ public class GenerateCommitMessageAction extends AnAction {
         }
     }
 
-    private String buildDiffText(List<Change> changes, ProgressIndicator indicator) throws Exception {
+    private String buildDiffText(List<Change> changes, ProgressIndicator indicator, StringBuilder debugLog) throws Exception {
         StringBuilder diffBuilder = new StringBuilder();
 
         for (Change change : changes) {
@@ -165,20 +175,16 @@ public class GenerateCommitMessageAction extends AnAction {
 
             if (beforeRevision == null && afterRevision != null) {
                 diffBuilder.append("Type: ADDED\n");
-                String content = afterRevision.getContent();
-                if (content == null) content = "";
+                String content = getRevisionContent(afterRevision, true, debugLog);
                 diffBuilder.append("Content:\n").append(takeChars(content, 1000)).append("\n");
             } else if (beforeRevision != null && afterRevision == null) {
                 diffBuilder.append("Type: DELETED\n");
-                String content = beforeRevision.getContent();
-                if (content == null) content = "";
+                String content = getRevisionContent(beforeRevision, false, debugLog);
                 diffBuilder.append("Content:\n").append(takeChars(content, 1000)).append("\n");
             } else if (beforeRevision != null && afterRevision != null) {
                 diffBuilder.append("Type: MODIFIED\n");
-                String before = beforeRevision.getContent();
-                String after = afterRevision.getContent();
-                if (before == null) before = "";
-                if (after == null) after = "";
+                String before = getRevisionContent(beforeRevision, false, debugLog);
+                String after = getRevisionContent(afterRevision, true, debugLog);
                 String lineDiff = getUnifiedDiff(before, after);
                 diffBuilder.append("Diff:\n").append(takeChars(lineDiff, 2000)).append("\n");
             }
@@ -193,11 +199,14 @@ public class GenerateCommitMessageAction extends AnAction {
     }
 
     private String getUnifiedDiff(String before, String after) {
-        List<String> lines1 = Arrays.asList(before.split("\n"));
-        List<String> lines2 = Arrays.asList(after.split("\n"));
+        String normalizedBefore = before.replace("\r\n", "\n").replace("\r", "\n");
+        String normalizedAfter = after.replace("\r\n", "\n").replace("\r", "\n");
+
+        List<String> lines1 = Arrays.asList(normalizedBefore.split("\n", -1));
+        List<String> lines2 = Arrays.asList(normalizedAfter.split("\n", -1));
 
         List<LineFragment> fragments = ComparisonManager.getInstance().compareLines(
-                before, after, ComparisonPolicy.DEFAULT, new EmptyProgressIndicator()
+                normalizedBefore, normalizedAfter, ComparisonPolicy.DEFAULT, new EmptyProgressIndicator()
         );
 
         StringBuilder diff = new StringBuilder();
@@ -233,9 +242,69 @@ public class GenerateCommitMessageAction extends AnAction {
 
         int contextEnd = Math.min(lines1.size(), lastLine1 + 2);
         for (int i = lastLine1; i < contextEnd; i++) {
-            diff.append("  ").append(lines1.get(i)).append("\n");
+            if (i < lines1.size()) {
+                diff.append("  ").append(lines1.get(i)).append("\n");
+            }
         }
 
         return diff.toString();
+    }
+
+    private String getRevisionContent(ContentRevision revision, boolean isAfter, StringBuilder debugLog) {
+        if (revision == null) return "";
+        try {
+            String content = null;
+            if (isAfter) {
+                VirtualFile vFile = revision.getFile().getVirtualFile();
+                if (vFile != null && vFile.isValid()) {
+                    final String[] contentHolder = new String[1];
+                    ApplicationManager.getApplication().runReadAction(() -> {
+                        Document doc = FileDocumentManager.getInstance().getDocument(vFile);
+                        if (doc != null) {
+                            contentHolder[0] = doc.getText();
+                        }
+                    });
+                    if (contentHolder[0] != null) {
+                        content = contentHolder[0];
+                        debugLog.append("[DEBUG: Read from Document for ").append(revision.getFile().getName()).append("]\n");
+                    }
+                }
+            }
+            if (content == null) {
+                content = revision.getContent();
+                debugLog.append("[DEBUG: Read from ContentRevision for ").append(revision.getFile().getName()).append("]\n");
+            }
+            if (content == null) {
+                debugLog.append("[WARNING: getContent() returned null for file ").append(revision.getFile().getPath()).append("]\n");
+                return "";
+            }
+            debugLog.append("[DEBUG: ").append(revision.getFile().getName())
+                    .append(" (isAfter=").append(isAfter)
+                    .append(") content length=").append(content.length())
+                    .append(", preview: ").append(takeChars(content.replace("\n", " ").replace("\r", ""), 50))
+                    .append("]\n");
+            return content;
+        } catch (Exception e) {
+            debugLog.append("[ERROR reading content for file ").append(revision.getFile().getPath()).append(": ").append(e.toString()).append("]\n");
+            java.io.StringWriter sw = new java.io.StringWriter();
+            e.printStackTrace(new java.io.PrintWriter(sw));
+            debugLog.append(sw.toString()).append("\n");
+            return "";
+        }
+    }
+
+    private void saveDebugLog(Project project, String diffText, String errors) {
+        try {
+            if (project.getBasePath() == null) return;
+            java.io.File debugFile = new java.io.File(project.getBasePath(), "ai-commit-diff-debug.log");
+            String logContent = "================ ERRORS / WARNINGS ================\n" +
+                    errors +
+                    "\n================ DIFF SENT TO LLM ================\n" +
+                    diffText +
+                    "\n==================================================\n";
+            java.nio.file.Files.writeString(debugFile.toPath(), logContent, java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            // Ignore
+        }
     }
 }

@@ -100,5 +100,22 @@ gradle buildPlugin -PlocalIdeaPath="D:\Program Files\JetBrains\IntelliJ IDEA 202
                 └── plugin.xml                                     # 插件功能模块与扩展点声明
 ```
 
+## 🤖 GitHub Actions 自动构建与发布
+
+本项目已配置 GitHub Actions 工作流。当你将代码推送到 GitHub 并推送版本 Tag（例如 `v1.0.0`）时，GitHub Actions 会自动编译插件并创建 Release，同时将生成的 `.zip` 插件包作为附件上传。
+
+### 触发步骤：
+1. **推送代码与 Tag**：
+   ```bash
+   git tag v1.0.0
+   git push origin main --tags
+   ```
+2. **自动构建**：
+   GitHub Actions 检测到以 `v` 开头的 Tag 之后，会自动执行以下流程：
+   * 拉取代码并设置 JDK 21 及 Gradle。
+   * 清除本地开发环境独有的代理和本地 IDEA 路径配置（确保在 CI 云端下载 SDK 并编译）。
+   * 编译并构建插件包。
+   * 创建一个名为 `v1.0.0` 的 GitHub Release，并将构建好的 `ai-commit-message-1.0-SNAPSHOT.zip` 上传到 Release 附件中。
+
 ## 📄 开源协议
 本项目采用 [MIT License](LICENSE) 开源协议。

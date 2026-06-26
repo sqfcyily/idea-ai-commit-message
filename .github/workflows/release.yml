@@ -1,0 +1,46 @@
+name: Build and Release Plugin
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Clean gradle.properties for CI
+        run: |
+          # Remove local proxy configurations and local IDEA path to force downloading from JetBrains
+          sed -i '/systemProp.http.proxy/d' gradle.properties
+          sed -i '/systemProp.https.proxy/d' gradle.properties
+          sed -i '/localIdeaPath/d' gradle.properties
+          cat gradle.properties
+
+      - name: Build Plugin
+        run: |
+          chmod +x gradlew
+          ./gradlew buildPlugin
+
+      - name: Create Release and Upload Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/distributions/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
